@@ -170,7 +170,7 @@ const Home = () => {
   useEffect(() => {
     if (!userData) return
     window.speechSynthesis.onvoiceschanged = () => {
-      const greeting = new SpeechSynthesisUtterance(`Hello Sir ${userData.name}, my name is ${userData.assistantName}. What can I do for you?`)
+      const greeting = new SpeechSynthesisUtterance(`Hello Sir ${userData.name}. What can I do for you?`)
       greeting.lang = 'bn-IN'
       greeting.onend = () => startRecognition()
       window.speechSynthesis.speak(greeting)
