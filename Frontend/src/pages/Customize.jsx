@@ -5,7 +5,7 @@ import image2 from '../assets/image2.jpg'
 import image3 from '../assets/image3.jpg'
 import image4 from '../assets/1684914163702.png'
 import { LuImageUp } from "react-icons/lu";
-import { userDataContext } from '../context/usercontext'
+import { userDataContext } from '../context/UserContext'
 import { useNavigate } from 'react-router-dom'
 import { IoChevronBackSharp } from "react-icons/io5";
 
