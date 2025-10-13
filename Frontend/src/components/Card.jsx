@@ -1,5 +1,5 @@
 import React from 'react'
-import { userDataContext } from '../context/usercontext'
+import { userDataContext } from '../context/UserContext'
 
 const Card = ({image}) => {
    const{serverUrl,
