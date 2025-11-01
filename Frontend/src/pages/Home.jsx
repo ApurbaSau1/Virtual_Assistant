@@ -17,9 +17,9 @@ const Home = () => {
   const [aiText, setAiText] = useState("")
   const [menuOpen, setMenuOpen] = useState(false)
 
-  // ✨ ADDED: State to track if user has started the assistant
+  // State to track if user has started the assistant
   const [isStarted, setIsStarted] = useState(false)
-  // ✨ ADDED: State to store available speech synthesis voices
+  // State to store available speech synthesis voices
   const [voices, setVoices] = useState([])
 
   const recognitionRef = useRef(null)
@@ -27,7 +27,7 @@ const Home = () => {
   const isSpeakingRef = useRef(false)
   const synth = window.speechSynthesis
 
-  // ✨ ADDED: Load voices on component mount
+  // Load voices on component mount
   useEffect(() => {
     const loadVoices = () => {
       setVoices(synth.getVoices())
@@ -66,7 +66,7 @@ const Home = () => {
     if (!text) return
     const utterance = new SpeechSynthesisUtterance(text)
     
-    // 🚀 MODIFIED: Use the 'voices' state to find voices reliably
+    // Use the 'voices' state to find voices reliably
     const bn = voices.find(v => v.lang === 'bn-IN')
     const hi = voices.find(v => v.lang === 'hi-IN')
 
@@ -132,7 +132,7 @@ const Home = () => {
     }
   }
 
-  // ✨ ADDED: Function to be called by the user's first click
+  // Function to be called by the user's first click
   const handleStartAssistant = () => {
     setIsStarted(true) // Show the main UI
 
@@ -140,7 +140,7 @@ const Home = () => {
     if (userData) {
       const greeting = new SpeechSynthesisUtterance(`Hello Sir ${userData.name}. What can I do for you?`)
       
-      // 🚀 MODIFIED: Use 'voices' state
+      // Use 'voices' state
       const bn = voices.find(v => v.lang === 'bn-IN')
       if (bn) {
         greeting.voice = bn
@@ -172,7 +172,7 @@ const Home = () => {
     recognitionRef.current = recognition
 
     const safeStart = () => {
-      // 🚀 MODIFIED: Only try to start if the assistant has been started
+      // Only try to start if the assistant has been started
       if (isStarted && !isSpeakingRef.current && !isRecognizingRef.current) {
         try { recognition.start() } catch { }
       }
@@ -182,7 +182,7 @@ const Home = () => {
 
     recognition.onend = () => {
       isRecognizingRef.current = false
-      if (isStarted && !isSpeakingRef.current) { // 🚀 MODIFIED: Check 'isStarted'
+      if (isStarted && !isSpeakingRef.current) {
         setListening(false)
         setTimeout(safeStart, 1000) // Auto-restart loop
       }
@@ -190,8 +190,8 @@ const Home = () => {
 
     recognition.onerror = (e) => {
       isRecognizingRef.current = false
-      if (isStarted && !isSpeakingRef.current) setListening(false) // 🚀 MODIFIED
-      if (isStarted && e.error !== 'aborted' && !isSpeakingRef.current) setTimeout(safeStart, 1000) // 🚀 MODIFIED
+      if (isStarted && !isSpeakingRef.current) setListening(false)
+      if (isStarted && e.error !== 'aborted' && !isSpeakingRef.current) setTimeout(safeStart, 1000)
     }
 
     recognition.onresult = async (event) => {
@@ -206,14 +206,9 @@ const Home = () => {
         setUserText("")
       }
     }
-
-    // ❌ REMOVED: Do not auto-start on load
-    // safeStart() 
+ 
     return () => { recognition.stop() }
-  }, [userData, isStarted, getGeminiResponse]) // ✨ ADDED 'isStarted' dependency
-
-  // ❌ REMOVED: Greeting useEffect is moved into handleStartAssistant
-  // useEffect(() => { ... }, [userData])
+  }, [userData, isStarted, getGeminiResponse]) // Added 'isStarted' dependency
 
   // 🎞️ Menu Animations
   const menuVariants = {
@@ -225,21 +220,23 @@ const Home = () => {
   return (
     <div className="w-full h-[100vh] bg-gradient-to-t from-black to-[#030353] flex justify-center items-center flex-col p-[20px] relative overflow-hidden">
 
-      {/* ✨ ADDED: Start Button overlay */}
+      {/* "Tap Anywhere" Overlay */}
       {!isStarted && (
-        <div className="absolute inset-0 z-50 flex flex-col justify-center items-center bg-[#030353]">
-          <h1 className="text-4xl text-white font-bold mb-4">Welcome</h1>
-          <p className="text-lg text-gray-300 mb-8">Tap to start the assistant</p>
-          <button
-            onClick={handleStartAssistant}
-            className="w-[200px] h-[60px] text-white font-semibold bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full text-[19px] shadow-lg shadow-cyan-500/50 animate-pulse"
-          >
-            Start Assistant
-          </button>
+        <div
+          className="absolute inset-0 z-50 flex flex-col justify-center items-center bg-[#030353] cursor-pointer"
+          onClick={handleStartAssistant}
+        >
+          <h1 className="text-4xl text-white font-bold mb-4">
+            Welcome {userData?.name}
+          </h1>
+          <p className="text-lg text-gray-300 mb-8 animate-pulse">
+            Tap anywhere to start the assistant
+          </p>
+          <FaMicrophone className="text-white text-6xl" />
         </div>
       )}
 
-      {/* 🚀 MODIFIED: Only render the UI if 'isStarted' is true */}
+      {/* Only render the UI if 'isStarted' is true */}
       {isStarted && (
         <>
           {/* Hamburger */}
