@@ -104,7 +104,6 @@ const Home = () => {
         break
       }
       case "wikipedia_search": open(`https://en.wikipedia.org/wiki/Special:Search?search=${query}`); break
-      // ... (all your other cases) ...
       case "news_search": open(`https://news.google.com/search?q=${query}`); break
       case "facebook_search": open(`https://www.facebook.com/search/top/?q=${query}`); break
       case "instagram_search": open(`https://www.instagram.com/${query}`); break
@@ -257,7 +256,7 @@ const Home = () => {
             {/* Desktop Buttons */}
             <div className="hidden lg:flex flex-col gap-3">
               <button onClick={handleLogout}
-                className="min-w-[150px] h-[60px] mt-[10px] text-white font-semibold bg-[#e92525de] rounded-full text-[19px]">
+                className="min-w-[1V0px] h-[60px] mt-[10px] text-white font-semibold bg-[#e92525de] rounded-full text-[19px]">
                 Logout
               </button>
               <button onClick={() => navigate('/customize')}
