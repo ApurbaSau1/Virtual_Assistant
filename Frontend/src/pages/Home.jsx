@@ -16,10 +16,6 @@ const Home = () => {
   const [userText, setUserText] = useState("")
   const [aiText, setAiText] = useState("")
   const [menuOpen, setMenuOpen] = useState(false)
-
-  // State to track if user has started the assistant
-  const [isStarted, setIsStarted] = useState(false)
-  // State to store available speech synthesis voices
   const [voices, setVoices] = useState([])
 
   const recognitionRef = useRef(null)
@@ -32,9 +28,7 @@ const Home = () => {
     const loadVoices = () => {
       setVoices(synth.getVoices())
     }
-    // Load voices when they are ready
     synth.onvoiceschanged = loadVoices
-    // Call it once just in case
     loadVoices()
   }, [synth])
 
@@ -66,7 +60,6 @@ const Home = () => {
     if (!text) return
     const utterance = new SpeechSynthesisUtterance(text)
     
-    // Use the 'voices' state to find voices reliably
     const bn = voices.find(v => v.lang === 'bn-IN')
     const hi = voices.find(v => v.lang === 'hi-IN')
 
@@ -81,7 +74,7 @@ const Home = () => {
     utterance.onend = () => {
       isSpeakingRef.current = false
       setAiText("")
-      startRecognition() // Restart listening after speaking
+      startRecognition()
     }
 
     synth.speak(utterance)
@@ -95,6 +88,7 @@ const Home = () => {
     const open = (url) => window.open(url, "_blank")
 
     switch (type) {
+      // ... (all your cases are here, no change)
       case "google_search": open(`https://www.google.com/search?q=${query}`); break
       case "youtube_search":
       case "youtube_play": {
@@ -132,32 +126,6 @@ const Home = () => {
     }
   }
 
-  // Function to be called by the user's first click
-  const handleStartAssistant = () => {
-    setIsStarted(true) // Show the main UI
-
-    // Now that the user has clicked, we can safely speak
-    if (userData) {
-      const greeting = new SpeechSynthesisUtterance(`Hello Sir ${userData.name}. What can I do for you?`)
-      
-      // Use 'voices' state
-      const bn = voices.find(v => v.lang === 'bn-IN')
-      if (bn) {
-        greeting.voice = bn
-      } else {
-        greeting.lang = 'en-US' // Fallback
-      }
-
-      greeting.onend = () => {
-        startRecognition() // Start listening *after* greeting
-      }
-      window.speechSynthesis.speak(greeting)
-    } else {
-      // If no user data, just start listening
-      startRecognition()
-    }
-  }
-
   // 🎧 Speech Recognition Setup
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
@@ -172,8 +140,7 @@ const Home = () => {
     recognitionRef.current = recognition
 
     const safeStart = () => {
-      // Only try to start if the assistant has been started
-      if (isStarted && !isSpeakingRef.current && !isRecognizingRef.current) {
+      if (!isSpeakingRef.current && !isRecognizingRef.current) {
         try { recognition.start() } catch { }
       }
     }
@@ -182,22 +149,22 @@ const Home = () => {
 
     recognition.onend = () => {
       isRecognizingRef.current = false
-      if (isStarted && !isSpeakingRef.current) {
+      if (!isSpeakingRef.current) {
         setListening(false)
-        setTimeout(safeStart, 1000) // Auto-restart loop
+        setTimeout(safeStart, 1000)
       }
     }
 
     recognition.onerror = (e) => {
       isRecognizingRef.current = false
-      if (isStarted && !isSpeakingRef.current) setListening(false)
-      if (isStarted && e.error !== 'aborted' && !isSpeakingRef.current) setTimeout(safeStart, 1000)
+      if (!isSpeakingRef.current) setListening(false)
+      if (e.error !== 'aborted' && !isSpeakingRef.current) setTimeout(safeStart, 1000)
     }
 
     recognition.onresult = async (event) => {
       const transcript = event.results[event.results.length - 1][0].transcript.trim()
       if (userData && transcript.toLowerCase().includes(userData.assistantName.toLowerCase())) {
-        recognition.stop() // Stop while processing
+        recognition.stop()
         setUserText(transcript)
         setAiText("")
         const data = await getGeminiResponse(transcript)
@@ -206,9 +173,42 @@ const Home = () => {
         setUserText("")
       }
     }
- 
+    
+    // safeStart() // We will start this after the greeting
     return () => { recognition.stop() }
-  }, [userData, isStarted, getGeminiResponse]) // Added 'isStarted' dependency
+  }, [userData, getGeminiResponse]) // Removed 'isStarted'
+
+  // 👋 Greeting voice (This will be BLOCKED on mobile)
+  useEffect(() => {
+    if (!userData || voices.length === 0) return
+
+    // This function will wait for voices to be loaded
+    const speakGreeting = () => {
+      const greeting = new SpeechSynthesisUtterance(`Hello Sir ${userData.name}. What can I do for you?`)
+      const bn = voices.find(v => v.lang === 'bn-IN')
+      if (bn) {
+        greeting.voice = bn
+      } else {
+        greeting.lang = 'en-US' // Fallback
+      }
+
+      greeting.onend = () => {
+        startRecognition() // Start listening *after* greeting
+      }
+      window.speechSynthesis.speak(greeting)
+    }
+
+    // Check if voices are already loaded
+    if (synth.getVoices().length > 0) {
+      speakGreeting()
+    } else {
+      // If not, wait for the onvoiceschanged event (which is set in the other useEffect)
+      synth.onvoiceschanged = () => {
+        setVoices(synth.getVoices())
+        speakGreeting()
+      }
+    }
+  }, [userData, voices]) // Run when userData or voices are loaded
 
   // 🎞️ Menu Animations
   const menuVariants = {
@@ -220,122 +220,104 @@ const Home = () => {
   return (
     <div className="w-full h-[100vh] bg-gradient-to-t from-black to-[#030353] flex justify-center items-center flex-col p-[20px] relative overflow-hidden">
 
-      {/* "Tap Anywhere" Overlay */}
-      {!isStarted && (
-        <div
-          className="absolute inset-0 z-50 flex flex-col justify-center items-center bg-[#030353] cursor-pointer"
-          onClick={handleStartAssistant}
-        >
-          <h1 className="text-4xl text-white font-bold mb-4">
-            Welcome {userData?.name}
-          </h1>
-          <p className="text-lg text-gray-300 mb-8 animate-pulse">
-            Tap anywhere to start the assistant
-          </p>
-          <FaMicrophone className="text-white text-6xl" />
+      {/* The main UI is now rendered immediately */}
+      <>
+        {/* Hamburger */}
+        <div className="absolute top-5 right-5 z-50">
+          {!menuOpen && (
+            <CgMenuGridO
+              className="text-white w-[30px] h-[30px] cursor-pointer lg:hidden"
+              onClick={() => setMenuOpen(true)}
+            />
+          )}
+
+          {/* Desktop Buttons */}
+          <div className="hidden lg:flex flex-col gap-3">
+            <button onClick={handleLogout}
+              className="min-w-[150px] h-[60px] mt-[10px] text-white font-semibold bg-[#e92525de] rounded-full text-[19px]">
+              Logout
+            </button>
+            <button onClick={() => navigate('/customize')}
+              className="min-w-[150px] h-[60px] text-white font-semibold bg-[#25bfe9de] rounded-full text-[19px]">
+              Customize
+            </button>
+          </div>
         </div>
-      )}
 
-      {/* Only render the UI if 'isStarted' is true */}
-      {isStarted && (
-        <>
-          {/* Hamburger */}
-          <div className="absolute top-5 right-5 z-50">
-            {!menuOpen && (
-              <CgMenuGridO
-                className="text-white w-[30px] h-[30px] cursor-pointer lg:hidden"
-                onClick={() => setMenuOpen(true)}
-              />
-            )}
+        {/* Mobile Menu */}
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.div
+              key="menu"
+              variants={menuVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              transition={{ duration: 0.5, ease: "easeInOut" }}
+              className="fixed top-0 right-0 w-[70%] h-full bg-[#00000069] rounded-2xl backdrop-blur-lg flex flex-col items-center justify-center gap-8 z-40 lg:hidden"
+            >
+              <button onClick={() => setMenuOpen(false)}
+                className="absolute top-5 right-5 text-white text-3xl font-bold hover:text-red-400 transition-all">
+                ×
+              </button>
 
-            {/* Desktop Buttons */}
-            <div className="hidden lg:flex flex-col gap-3">
-              <button onClick={handleLogout}
-                className="min-w-[150px] h-[60px] mt-[10px] text-white font-semibold bg-[#e92525de] rounded-full text-[19px]">
+              <button onClick={() => { setMenuOpen(false); handleLogout(); }}
+                className="w-[150px] h-[55px] absolute top-[2%] text-white font-semibold bg-[#e92525de] rounded-full">
                 Logout
               </button>
-              <button onClick={() => navigate('/customize')}
-                className="min-w-[150px] h-[60px] text-white font-semibold bg-[#25bfe9de] rounded-full text-[19px]">
+
+              <button onClick={() => { setMenuOpen(false); navigate('/customize'); }}
+                className="w-[150px] h-[55px] absolute top-[12%] text-white font-semibold bg-[#25bfe9de] rounded-full">
                 Customize
               </button>
-            </div>
-          </div>
 
-          {/* Mobile Menu */}
-          <AnimatePresence>
-            {menuOpen && (
-              <motion.div
-                key="menu"
-                variants={menuVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                transition={{ duration: 0.5, ease: "easeInOut" }}
-                className="fixed top-0 right-0 w-[70%] h-full bg-[#00000069] rounded-2xl backdrop-blur-lg flex flex-col items-center justify-center gap-8 z-40 lg:hidden"
-              >
-                <button onClick={() => setMenuOpen(false)}
-                  className="absolute top-5 right-5 text-white text-3xl font-bold hover:text-red-400 transition-all">
-                  ×
-                </button>
+              <div className="w-[90%] h-[2px] absolute top-[22%] bg-gray-400" />
+              <h1 className="text-white absolute top-[25%] text-lg">History</h1>
 
-                <button onClick={() => { setMenuOpen(false); handleLogout(); }}
-                  className="w-[150px] h-[55px] absolute top-[2%] text-white font-semibold bg-[#e92525de] rounded-full">
-                  Logout
-                </button>
+              <div className="w-[80%] h-[60%] absolute top-[30%] overflow-auto flex flex-col gap-2">
+                {userData?.HISTORY?.map((history, i) => (
+                  <span key={i} className="text-white">{i + 1}. {history}</span>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-                <button onClick={() => { setMenuOpen(false); navigate('/customize'); }}
-                  className="w-[150px] h-[55px] absolute top-[12%] text-white font-semibold bg-[#25bfe9de] rounded-full">
-                  Customize
-                </button>
+        {/* AI Avatar */}
+        <motion.div
+          className="w-[220px] h-[320px] rounded overflow-hidden border-4 border-cyan-400 shadow-xl shadow-cyan-500/50"
+          animate={{
+            boxShadow: listening
+              ? "0 0 40px rgba(0,255,255,0.5),0 0 80px rgba(0,255,255,0.2)"
+              : "0 0 20px rgba(59,130,246,0.3)"
+          }}
+          transition={{ duration: 1 }}
+        >
+          <img src={userData?.assistantImage} alt={userData?.assistantName} className="w-full h-full object-cover" />
+        </motion.div>
 
-                <div className="w-[90%] h-[2px] absolute top-[22%] bg-gray-400" />
-                <h1 className="text-white absolute top-[25%] text-lg">History</h1>
+        <h1 className="text-3xl mt-5 text-white font-bold">I’m {userData?.assistantName}</h1>
 
-                <div className="w-[80%] h-[60%] absolute top-[30%] overflow-auto flex flex-col gap-2">
-                  {userData?.HISTORY?.map((history, i) => (
-                    <span key={i} className="text-white">{i + 1}. {history}</span>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+        {/* Mic status */}
+        <motion.div className="mt-6 flex items-center gap-3 text-xl text-white"
+          animate={{ opacity: listening ? [0.7, 1, 0.7] : 1 }}
+          transition={{ repeat: listening ? Infinity : 0, duration: 1 }}
+        >
+          {listening
+            ? <FaMicrophone className="text-green-400 animate-pulse" />
+            : <FaMicrophoneSlash className="text-gray-400" />}
+          <p>{listening ? "Listening..." : "Inactive"}</p>
+        </motion.div>
 
-          {/* AI Avatar */}
-          <motion.div
-            className="w-[220px] h-[320px] rounded overflow-hidden border-4 border-cyan-400 shadow-xl shadow-cyan-500/50"
-            animate={{
-              boxShadow: listening
-                ? "0 0 40px rgba(0,255,255,0.5),0 0 80px rgba(0,255,255,0.2)"
-                : "0 0 20px rgba(59,130,246,0.3)"
-            }}
-            transition={{ duration: 1 }}
-          >
-            <img src={userData?.assistantImage} alt={userData?.assistantName} className="w-full h-full object-cover" />
-          </motion.div>
+        {/* Voice animation */}
+        {!aiText && <img src={userimg} alt="" className="w-[300px] h-[100px]" />}
+        {aiText && <img src={aiimg} alt="" className="w-[300px] h-[100px]" />}
 
-          <h1 className="text-3xl mt-5 text-white font-bold">I’m {userData?.assistantName}</h1>
-
-          {/* Mic status */}
-          <motion.div className="mt-6 flex items-center gap-3 text-xl text-white"
-            animate={{ opacity: listening ? [0.7, 1, 0.7] : 1 }}
-            transition={{ repeat: listening ? Infinity : 0, duration: 1 }}
-          >
-            {listening
-              ? <FaMicrophone className="text-green-400 animate-pulse" />
-              : <FaMicrophoneSlash className="text-gray-400" />}
-            <p>{listening ? "Listening..." : "Inactive"}</p>
-          </motion.div>
-
-          {/* Voice animation */}
-          {!aiText && <img src={userimg} alt="" className="w-[300px] h-[100px]" />}
-          {aiText && <img src={aiimg} alt="" className="w-[300px] h-[100px]" />}
-
-          {/* AI/User Text */}
-          <h1 className="text-white mt-4 text-center max-w-[80%]">
-            {userText || aiText || ""}
-          </h1>
-        </>
-      )}
+        {/* AI/User Text */}
+        <h1 className="text-white mt-4 text-center max-w-[80%]">
+          {userText || aiText || ""}
+        </h1>
+      </>
     </div>
   )
 }
